@@ -33,11 +33,16 @@ async function iniciarSesion() {
 
     const rutasPorRol: Record<string, string> = {
       admin: '/admin',
-      cliente: '/principal',
-      empleado: '/empleado',
+      cliente: '/catalogo',
+      empleado: '/admin',
     }
     const rol = respuesta.user.role.trim().toLowerCase()
-    const ruta = rutasPorRol[rol]
+    const rutaSolicitada = typeof route.query.redirect === 'string'
+      && route.query.redirect === '/catalogo'
+      && rol === 'cliente'
+      ? route.query.redirect
+      : undefined
+    const ruta = rutaSolicitada ?? rutasPorRol[rol]
 
     if (!ruta) {
       mensaje.value = 'El tipo de usuario de esta cuenta no tiene una vista asignada.'
@@ -73,7 +78,7 @@ async function iniciarSesion() {
 <template>
   <main class="login-page">
     <section class="login-copy" aria-label="Mensaje de bienvenida">
-      <span>DAN’STAMP</span>
+      <BrandLogo size="large" />
       <h2>Acceso Seguro</h2>
       <p>Manten el control.</p>
     </section>
@@ -116,7 +121,7 @@ async function iniciarSesion() {
 .boton-inicio { position: absolute; z-index: 2; top: 28px; left: 34px; padding: 10px 15px; border: 1px solid rgba(255,255,255,.8); border-radius: 20px; color: white; background: #a33ca6; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 700; transition: background .2s, transform .2s; }
 .boton-inicio:hover { background: #8e328f; transform: translateY(-2px); }
 .login-copy { position: absolute; z-index: 1; top: 24%; left: 5.5%; color: var(--registro-tinta); font-family: 'DM Sans', sans-serif; }
-.login-copy > span { display: block; margin-bottom: 18px; font-size: 17px; }
+.login-copy > .brand-logo { margin-bottom: 18px; }
 .login-copy h2, .login-copy p { margin: 0; font-weight: 700; line-height: .98; }
 .login-copy h2 { font-size: clamp(2.7rem, 4.8vw, 4.4rem); letter-spacing: -.06em; }
 .login-copy p { font-size: clamp(2.5rem, 4.4vw, 4rem); font-weight: 400; letter-spacing: -.06em; }

@@ -89,11 +89,13 @@ async function registrar() {
 <template>
   <main class="registro-page">
     <div class="registro-topbar" aria-hidden="true"></div>
-    <NuxtLink to="/" class="registro-marca">DAN’STAMP</NuxtLink>
+    <NuxtLink to="/" class="registro-marca" aria-label="Volver al inicio">
+      <BrandLogo size="large" />
+    </NuxtLink>
 
     <section class="registro-layout" aria-labelledby="registro-title">
       <header class="registro-intro">
-        <p class="registro-eyebrow">DAN’STAMP · ACCESO DE CLIENTES</p>
+        <p class="registro-eyebrow">ACCESO DE CLIENTES</p>
         <h1>Tu cuenta,<br /><span>a tu manera.</span></h1>
         <p>Regístrate para empezar a crear y dar seguimiento a tus pedidos.</p>
         <div class="registro-sello" aria-hidden="true">✦</div>
@@ -208,11 +210,7 @@ async function registrar() {
   position: absolute;
   top: 28px;
   left: 7vw;
-  color: var(--registro-tinta);
-  font-family: 'Space Grotesk', Arial, sans-serif;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: .08em;
+  display: block;
   text-decoration: none;
 }
 

@@ -30,6 +30,8 @@ interface UsuarioSesion {
 const config = useRuntimeConfig()
 const token = ref('')
 const usuario = ref<UsuarioSesion | null>(null)
+const esEmpleado = computed(() => usuario.value?.role?.toLowerCase() === 'empleado')
+const autorizado = ref(false)
 const productos = ref<Producto[]>([])
 const categorias = ref<Categoria[]>([])
 const busqueda = ref('')
@@ -40,8 +42,13 @@ const guardando = ref(false)
 const errorCarga = ref('')
 const mensaje = ref('')
 const modalAbierto = ref(false)
+const modalAutorizacionAbierto = ref(false)
+const autorizandoCambio = ref(false)
+const mensajeAutorizacion = ref('')
 const productoEditando = ref<number | null>(null)
+const productoEstadoPendiente = ref<Producto | null>(null)
 const archivoImagen = ref<File | null>(null)
+const credencialesAdmin = reactive({ email: '', password: '' })
 
 const formulario = reactive({
   codigo: '',
@@ -99,11 +106,13 @@ onMounted(async () => {
     return
   }
 
-  if (usuario.value?.role?.toLowerCase() !== 'admin') {
+  const role = usuario.value?.role?.toLowerCase()
+  if (role !== 'admin' && role !== 'empleado') {
     await navigateTo('/principal', { replace: true })
     return
   }
 
+  autorizado.value = true
   token.value = storedToken
   await cargarDatos()
 })
@@ -142,6 +151,7 @@ function obtenerMensaje(error: unknown, fallback: string): string {
 }
 
 function abrirNuevoProducto() {
+  limpiarCredencialesAdmin()
   productoEditando.value = null
   Object.assign(formulario, {
     codigo: '',
@@ -163,6 +173,7 @@ function abrirNuevoProducto() {
 }
 
 function abrirEdicion(producto: Producto) {
+  limpiarCredencialesAdmin()
   productoEditando.value = producto.id_producto
   Object.assign(formulario, {
     codigo: producto.codigo,
@@ -188,7 +199,36 @@ function seleccionarImagen(event: Event) {
   archivoImagen.value = input.files?.[0] ?? null
 }
 
+function limpiarCredencialesAdmin() {
+  credencialesAdmin.email = ''
+  credencialesAdmin.password = ''
+}
+
+function crearHeaders(requiereAutorizacionAdmin: boolean): Record<string, string> | null {
+  const headers: Record<string, string> = { Authorization: `Bearer ${token.value}` }
+  if (!requiereAutorizacionAdmin) return headers
+
+  const email = credencialesAdmin.email.trim()
+  if (!email || !credencialesAdmin.password) return null
+
+  headers['X-Admin-Email'] = email
+  headers['X-Admin-Password'] = credencialesAdmin.password
+  return headers
+}
+
+function cerrarModalProducto() {
+  modalAbierto.value = false
+  limpiarCredencialesAdmin()
+}
+
 async function guardarProducto() {
+  const requiereAutorizacionAdmin = productoEditando.value !== null && esEmpleado.value
+  const headers = crearHeaders(requiereAutorizacionAdmin)
+  if (!headers) {
+    mensaje.value = 'Ingresa el correo y la contraseña del administrador para autorizar esta edición.'
+    return
+  }
+
   guardando.value = true
   mensaje.value = ''
   const datos = new FormData()
@@ -210,14 +250,15 @@ async function guardarProducto() {
     await $fetch(productoEditando.value ? `/productos/${productoEditando.value}` : '/productos', {
       baseURL: config.public.apiBase,
       method: productoEditando.value ? 'PATCH' : 'POST',
-      headers: { Authorization: `Bearer ${token.value}` },
+      headers,
       body: datos,
     })
-    modalAbierto.value = false
+    cerrarModalProducto()
     await cargarDatos()
   } catch (error: unknown) {
     mensaje.value = obtenerMensaje(error, 'No se pudo guardar el producto.')
   } finally {
+    if (requiereAutorizacionAdmin) limpiarCredencialesAdmin()
     guardando.value = false
   }
 }
@@ -226,17 +267,57 @@ async function cambiarEstado(producto: Producto) {
   const accion = producto.estado ? 'desactivar' : 'activar'
   if (!window.confirm(`¿Quieres ${accion} «${producto.nombre}»?`)) return
 
+  if (esEmpleado.value) {
+    productoEstadoPendiente.value = producto
+    mensajeAutorizacion.value = ''
+    limpiarCredencialesAdmin()
+    modalAutorizacionAbierto.value = true
+    return
+  }
+
+  await guardarCambioEstado(producto, false)
+}
+
+async function confirmarCambioEstado() {
+  if (!productoEstadoPendiente.value) return
+  await guardarCambioEstado(productoEstadoPendiente.value, true)
+}
+
+async function guardarCambioEstado(producto: Producto, requiereAutorizacionAdmin: boolean) {
+  const headers = crearHeaders(requiereAutorizacionAdmin)
+  if (!headers) {
+    mensajeAutorizacion.value = 'Ingresa el correo y la contraseña del administrador para autorizar esta acción.'
+    return
+  }
+
+  autorizandoCambio.value = true
   try {
     await $fetch(`/productos/${producto.id_producto}`, {
       baseURL: config.public.apiBase,
       method: 'PATCH',
-      headers: { Authorization: `Bearer ${token.value}` },
+      headers,
       body: { estado: !producto.estado },
     })
+    modalAutorizacionAbierto.value = false
+    productoEstadoPendiente.value = null
     await cargarDatos()
   } catch (error: unknown) {
-    errorCarga.value = obtenerMensaje(error, `No se pudo ${accion} el producto.`)
+    const accion = producto.estado ? 'desactivar' : 'activar'
+    const errorMensaje = obtenerMensaje(error, `No se pudo ${accion} el producto.`)
+    if (requiereAutorizacionAdmin) mensajeAutorizacion.value = errorMensaje
+    else errorCarga.value = errorMensaje
+  } finally {
+    if (requiereAutorizacionAdmin) limpiarCredencialesAdmin()
+    autorizandoCambio.value = false
   }
+}
+
+function cerrarModalAutorizacion() {
+  if (autorizandoCambio.value) return
+  modalAutorizacionAbierto.value = false
+  productoEstadoPendiente.value = null
+  mensajeAutorizacion.value = ''
+  limpiarCredencialesAdmin()
 }
 
 function exportarCsv() {
@@ -267,15 +348,21 @@ function cerrarSesion() {
 </script>
 
 <template>
-  <main class="admin-page">
+  <main v-if="autorizado" class="admin-page">
     <aside class="admin-sidebar">
-      <NuxtLink class="admin-brand" to="/admin"><span class="brand-mark">D</span><span>DAN’STAMP</span></NuxtLink>
+      <NuxtLink class="admin-brand" to="/admin" aria-label="DAN’STAMP">
+        <BrandLogo size="medium" />
+      </NuxtLink>
       <div class="admin-user">
         <span class="user-avatar">{{ usuario?.fullName?.charAt(0) || 'A' }}</span>
-        <span><strong>{{ usuario?.fullName || 'Administrador' }}</strong><small>Administrador</small></span>
+        <span><strong>{{ usuario?.fullName || 'Administrador' }}</strong><small>{{ usuario?.role === 'empleado' ? 'Empleado' : 'Administrador' }}</small></span>
       </div>
       <nav class="admin-nav" aria-label="Navegación de administración">
-        <NuxtLink class="nav-item active" to="/admin/productos"><span>▦</span> Catálogo de productos</NuxtLink>
+        <NuxtLink class="nav-item" to="/admin"><span>▦</span> Dashboard</NuxtLink>
+        <NuxtLink class="nav-item" to="/admin/usuarios"><span>♙</span> Usuarios</NuxtLink>
+        <NuxtLink class="nav-item" to="/admin/clientes"><span>♧</span> Clientes</NuxtLink>
+        <NuxtLink class="nav-item" to="/admin/pedidos"><span>🛒</span> Pedidos</NuxtLink>
+        <NuxtLink class="nav-item active" to="/admin/productos"><span>▣</span> Catálogo de productos</NuxtLink>
       </nav>
       <button class="logout-button" type="button" @click="cerrarSesion"><span>↪</span> Cerrar sesión</button>
     </aside>
@@ -293,7 +380,7 @@ function cerrarSesion() {
         <div>
           <p class="eyebrow">PANEL DE ADMINISTRACIÓN</p>
           <h1>Catálogo Dan Stamp</h1>
-          <p class="heading-copy">Gestiona productos, precios, inventario e imágenes de tu catálogo.</p>
+          <p class="heading-copy">{{ esEmpleado ? 'Consulta el catálogo y registra nuevos productos. Para editar o activar/desactivar se requiere autorización del administrador.' : 'Gestiona productos, precios, inventario e imágenes de tu catálogo.' }}</p>
         </div>
         <div class="admin-summary">
           <span><strong>{{ productos.length }}</strong> productos</span>
@@ -349,19 +436,21 @@ function cerrarSesion() {
               <span class="product-stock" :class="{ low: producto.stock <= producto.stock_minimo }">Stock {{ producto.stock }}</span>
             </div>
             <div class="product-actions">
-              <button type="button" class="action-edit" @click="abrirEdicion(producto)">Editar</button>
-              <button type="button" class="action-status" @click="cambiarEstado(producto)">{{ producto.estado ? 'Desactivar' : 'Activar' }}</button>
+              <template v-if="usuario?.role?.toLowerCase() === 'admin' || esEmpleado">
+                <button type="button" class="action-edit" @click="abrirEdicion(producto)">Editar</button>
+                <button type="button" class="action-status" @click="cambiarEstado(producto)">{{ producto.estado ? 'Desactivar' : 'Activar' }}</button>
+              </template>
             </div>
           </div>
         </article>
       </section>
     </section>
 
-    <div v-if="modalAbierto" class="modal-backdrop" @click.self="modalAbierto = false">
+    <div v-if="modalAbierto" class="modal-backdrop" @click.self="cerrarModalProducto">
       <section class="product-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <header class="modal-header">
           <div><p class="eyebrow">CATÁLOGO</p><h2 id="modal-title">{{ productoEditando ? 'Editar producto' : 'Agregar producto' }}</h2></div>
-          <button type="button" class="modal-close" aria-label="Cerrar" @click="modalAbierto = false">×</button>
+          <button type="button" class="modal-close" aria-label="Cerrar" @click="cerrarModalProducto">×</button>
         </header>
         <form class="product-form" @submit.prevent="guardarProducto">
           <div class="form-pair">
@@ -390,10 +479,37 @@ function cerrarSesion() {
           <label>Imagen del producto<input type="file" accept="image/jpeg,image/png,image/webp" @change="seleccionarImagen" /><small>JPG, PNG o WEBP; máximo 5 MB.</small></label>
           <label v-if="!archivoImagen">O URL de imagen<input v-model="formulario.imagen_url" type="url" placeholder="https://..." /></label>
           <label class="checkbox-label"><input v-model="formulario.estado" type="checkbox" /> Producto activo</label>
+          <div v-if="productoEditando && esEmpleado" class="approval-fields">
+            <p>El administrador debe autorizar cada edición.</p>
+            <label>Correo del administrador<input v-model="credencialesAdmin.email" type="email" autocomplete="username" required /></label>
+            <label>Contraseña del administrador<input v-model="credencialesAdmin.password" type="password" autocomplete="current-password" required /></label>
+          </div>
           <p v-if="mensaje" class="state-message error-message" role="alert">{{ mensaje }}</p>
           <footer class="modal-actions">
-            <button type="button" class="button button-light" @click="modalAbierto = false">Cancelar</button>
+            <button type="button" class="button button-light" @click="cerrarModalProducto">Cancelar</button>
             <button type="submit" class="button button-dark" :disabled="guardando">{{ guardando ? 'Guardando...' : 'Guardar producto' }}</button>
+          </footer>
+        </form>
+      </section>
+    </div>
+
+    <div v-if="modalAutorizacionAbierto && productoEstadoPendiente" class="modal-backdrop" @click.self="cerrarModalAutorizacion">
+      <section class="product-modal approval-modal" role="dialog" aria-modal="true" aria-labelledby="approval-title">
+        <header class="modal-header">
+          <div>
+            <p class="eyebrow">AUTORIZACIÓN</p>
+            <h2 id="approval-title">{{ productoEstadoPendiente.estado ? 'Desactivar producto' : 'Activar producto' }}</h2>
+          </div>
+          <button type="button" class="modal-close" aria-label="Cerrar" :disabled="autorizandoCambio" @click="cerrarModalAutorizacion">×</button>
+        </header>
+        <form class="product-form" @submit.prevent="confirmarCambioEstado">
+          <p class="approval-description">Para cambiar el estado de «{{ productoEstadoPendiente.nombre }}», ingresa las credenciales del administrador.</p>
+          <label>Correo del administrador<input v-model="credencialesAdmin.email" type="email" autocomplete="username" required /></label>
+          <label>Contraseña del administrador<input v-model="credencialesAdmin.password" type="password" autocomplete="current-password" required /></label>
+          <p v-if="mensajeAutorizacion" class="state-message error-message" role="alert">{{ mensajeAutorizacion }}</p>
+          <footer class="modal-actions">
+            <button type="button" class="button button-light" :disabled="autorizandoCambio" @click="cerrarModalAutorizacion">Cancelar</button>
+            <button type="submit" class="button button-dark" :disabled="autorizandoCambio">{{ autorizandoCambio ? 'Verificando...' : 'Autorizar cambio' }}</button>
           </footer>
         </form>
       </section>
@@ -424,8 +540,7 @@ function cerrarSesion() {
   background: linear-gradient(180deg, #f3c7ef, #efdaf4);
 }
 
-.admin-brand { display: flex; align-items: center; gap: 10px; padding: 0 8px; color: var(--admin-ink); font-family: 'Space Grotesk', Arial, sans-serif; font-size: 13px; font-weight: 700; letter-spacing: .05em; text-decoration: none; }
-.brand-mark { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; color: white; background: #bd4dc1; font-size: 16px; }
+.admin-brand { display: flex; align-items: center; padding: 0 8px; text-decoration: none; }
 .admin-user { display: flex; align-items: center; gap: 11px; margin: 38px 0 34px; padding: 14px 10px; border-radius: 12px; background: rgba(255,255,255,.52); }
 .user-avatar { display: grid; place-items: center; flex: 0 0 38px; height: 38px; border-radius: 50%; color: white; background: #a83caf; font-weight: 700; }
 .admin-user strong, .admin-user small { display: block; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -508,11 +623,14 @@ function cerrarSesion() {
 .product-form input:focus, .product-form select:focus, .product-form textarea:focus { border-color: #cb65d0; box-shadow: 0 0 0 3px rgba(203,101,208,.12); }
 .product-form input[type="file"] { color: #726477; font: inherit; font-size: 11px; }
 .product-form small { color: #998a9c; font-size: 9px; font-weight: 400; }
+.approval-fields { display: grid; gap: 11px; padding: 14px; border: 1px solid #e8d6ea; border-radius: 10px; background: #fcf6fc; }
+.approval-fields > p, .approval-description { margin: 0; color: #786b7b; font-size: 11px; line-height: 1.5; }
 .form-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .form-triple { grid-template-columns: repeat(3, 1fr); }
 .checkbox-label { display: flex !important; align-items: center; gap: 8px !important; }
 .checkbox-label input { accent-color: #bd4dc1; }
 .modal-actions { display: flex; justify-content: end; gap: 9px; margin-top: 5px; }
+.modal-close:disabled { cursor: wait; opacity: .6; }
 
 @media (max-width: 1250px) { .product-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 950px) {

@@ -120,7 +120,9 @@ function cerrarSesion() {
 <template>
   <main class="empleado-page">
     <header class="empleado-topbar">
-      <NuxtLink class="empleado-marca" to="/principal"><span>D</span> DAN’STAMP</NuxtLink>
+      <NuxtLink class="empleado-marca" to="/principal" aria-label="Ir al inicio">
+        <BrandLogo size="medium" />
+      </NuxtLink>
       <div class="empleado-perfil">
         <span>{{ usuario?.fullName || 'Trabajador' }}</span>
         <span class="rol-badge">TRABAJADOR</span>
@@ -191,8 +193,7 @@ function cerrarSesion() {
 
 .empleado-page { --empleado-rosa: #e56ddd; --empleado-lila: #f3c7ef; --empleado-ink: #28212d; min-height: 100vh; color: var(--empleado-ink); background: linear-gradient(125deg, #f8d7f0 0%, #e8d6f7 48%, #fff4f8 100%); font-family: 'DM Sans', Arial, sans-serif; }
 .empleado-topbar { display: flex; justify-content: space-between; align-items: center; min-height: 64px; padding: 0 6vw; border-bottom: 1px solid rgba(255,255,255,.7); background: rgba(255,255,255,.65); }
-.empleado-marca { display: flex; align-items: center; gap: 9px; color: var(--empleado-ink); font-family: 'Space Grotesk', Arial, sans-serif; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-decoration: none; }
-.empleado-marca > span { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; color: white; background: #bd4dc1; }
+.empleado-marca { display: flex; align-items: center; text-decoration: none; }
 .empleado-perfil { display: flex; align-items: center; gap: 13px; font-size: 11px; }
 .rol-badge { padding: 5px 8px; border-radius: 99px; color: #8e328f; background: #f4e3f5; font-size: 8px; font-weight: 700; letter-spacing: .06em; }
 .empleado-perfil button { padding: 8px 12px; border: 1px solid #e6d9e8; border-radius: 99px; color: #55485b; background: white; cursor: pointer; font: inherit; font-size: 10px; }

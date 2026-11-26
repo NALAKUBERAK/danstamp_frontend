@@ -5,7 +5,6 @@ import imagenProducto2 from '~/assets/paginaprincipal/3.png'
 import imagenProducto3 from '~/assets/paginaprincipal/4.png'
 import imagenProducto4 from '~/assets/paginaprincipal/5.png'
 import cafe from '~/assets/paginaprincipal/cafenube.png'
-import logo from '~/assets/logo1.png'
 
 const productos = [
   { nombre: 'Camisetas', imagen: imagenProducto1, tono: 'rosa' },
@@ -32,10 +31,10 @@ const preguntas = [
   <main class="pagina-principal">
     <header class="barra-navegacion">
       <NuxtLink to="/" class="marca" aria-label="Volver al inicio">
-        <img :src="logo" alt="DAN'STAMP" class="logo-imagen" />
-        <span>DAN'STAMP</span>
+        <BrandLogo size="large" />
       </NuxtLink>
       <nav class="navegacion" aria-label="Navegación principal">
+        <NuxtLink to="/catalogo">Catálogo</NuxtLink>
         <a href="#productos">Productos</a>
         <a href="#proceso">Cómo funciona</a>
         <a href="#preguntas">Preguntas</a>
@@ -102,7 +101,7 @@ const preguntas = [
 
     <section id="contacto" class="llamada seccion-ancha"><div><p class="ceja">UNA BUENA IDEA MERECE SALIR</p><h2>¿Lo tienes en mente?<br /><em>Ponlo en tela.</em></h2></div><img :src="imagenProducto3" alt="Tote bag personalizada" /><a class="boton boton-rosa" href="mailto:hola@danstamp.com">Cuéntanos tu idea <span>↗</span></a></section>
 
-    <footer class="pie"><NuxtLink to="/" class="marca"><img :src="logo" alt="DAN'STAMP" class="logo-imagen" /><span>DAN'STAMP</span></NuxtLink><p>Diseños que hablan por ti.</p><span>© 2026 DAN'STAMP</span></footer>
+    <footer class="pie"><NuxtLink to="/" class="marca" aria-label="Ir al inicio"><BrandLogo size="large" /></NuxtLink><p>Diseños que hablan por ti.</p><span>© 2026</span></footer>
   </main>
 </template>
 
@@ -118,8 +117,7 @@ a { color: inherit; text-decoration: none; }
 .seccion-ancha { padding-left: max(5vw, 28px); padding-right: max(5vw, 28px); }
 .seccion-contenido { max-width: 1240px; margin: auto; padding-left: 5vw; padding-right: 5vw; }
 .barra-navegacion { height: 84px; display: flex; align-items: center; justify-content: space-between; padding: 0 5vw; color: white; background: var(--negro); }
-.marca { display: inline-flex; align-items: center; gap: 9px; font-family: 'Space Grotesk', sans-serif; font-weight: 700; letter-spacing: -.05em; }
-.logo-imagen { display: block; width: 68px; height: 68px; object-fit: contain; background: transparent; }
+.marca { display: inline-flex; align-items: center; }
 .marca-sello { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; color: white; background: var(--negro); font-size: 16px; }
 .navegacion { display: flex; gap: 32px; font-size: 13px; font-weight: 700; }
 .navegacion a:hover, .enlace:hover { color: var(--rosa); }

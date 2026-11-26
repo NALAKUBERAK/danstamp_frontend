@@ -1,9 +1,5 @@
 ```vue
 <!-- filepath: c:\Users\Aprendiz.DESKTOP-VLGOKLF.001\Desktop\NUXT\proyectalgorit\app\pages\index.vue -->
-<script setup>
-import imagen from '~/assets/logo1.png'
-</script>
-
 <template>
   <main class="inicio">
     <div class="decoracion decoracion-1"></div>
@@ -11,14 +7,13 @@ import imagen from '~/assets/logo1.png'
 
     <section class="contenido">
       <div class="logo-contenedor">
-        <img :src="imagen" alt="Logo de DAN'STAMP" class="imagen" />
+        <BrandLogo size="hero" />
       </div>
 
       <p class="etiqueta">CREATIVIDAD · CALIDAD · ESTILO</p>
 
       <h1>
         Bienvenidos a
-        <span> DAN'STAMP </span>
       </h1>
 
       <p class="descripcion">
@@ -70,13 +65,6 @@ import imagen from '~/assets/logo1.png'
   backdrop-filter: blur(10px);
 }
 
-.imagen {
-  width: 78%;
-  height: 78%;
-  object-fit: contain;
-  border-radius: 50%;
-}
-
 .etiqueta {
   margin-bottom: 1rem;
   color: #e8b9ff;
@@ -90,12 +78,6 @@ h1 {
   font-size: clamp(2.5rem, 7vw, 5rem);
   line-height: 1.05;
   font-weight: 800;
-}
-
-h1 span {
-  display: block;
-  color: #e99aff;
-  text-shadow: 0 0 25px rgba(233, 154, 255, 0.5);
 }
 
 .descripcion {
